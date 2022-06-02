@@ -1,29 +1,21 @@
-
+import { WindowApp } from './model/WindowApp';
+import { Style } from './model/Style';
+import { Bullet } from './model/Bullet';
 import * as PIXI from 'pixi'
+import { TextBlock } from './model/Text';
+import { Game } from './model/Game';
+import { Enemy } from './model/Enemy';
 const canvas = document.querySelector("canvas");
+			const game:Game = new Game(500,600,0,3);
+			const app:WindowApp = new WindowApp(canvas,game.width,game.height,0xFF000)
 
-			const height = 500
-			const width = 600
-
-			const app = new PIXI.Application({
-				view: canvas,
-				width: width,
-				height: height,
-				backgroundColor: 0xFF000
-			});
 			let img = new PIXI.Sprite.from("resources/space.png");
 			app.stage.addChild(img);
-			let points = 0;
-			let livesn = 3;
-			function createGameScene(gameScene, gainedPoints, n) {
-				const style = new PIXI.TextStyle({ fill: "#eee", fontSize: 20 });
 
-				const score = new PIXI.Text(`Score: ${gainedPoints}`, style);
-				const lives = new PIXI.Text(`Lives: ${n}`,style)
-				lives.position.x = 480;
-				lives.position.y = 20;
-				score.position.x = 20;
-				score.position.y = 20;
+			function createGameScene(gameScene) {
+				const coreStyle:Style = new Style("#eee",20);
+				const score:TextBlock = new TextBlock(20, 20, `Score: ${game.getPoints()}`, coreStyle);
+				const lives:TextBlock = new TextBlock(480,20,`Lives: ${game.getLives}`,coreStyle)
 				gameScene.addChild(lives);
 				gameScene.addChild(score);
 				const background = new PIXI.Container();
@@ -39,23 +31,19 @@ const canvas = document.querySelector("canvas");
 				gameScene.addChild(enemies);
 
 				const sprite = PIXI.Sprite.from("resources/player.png");
-				sprite.position.x = width/2-25;
+				sprite.position.x = game.width/2-25;
 				sprite.position.y = 300;
 				players.addChild(sprite);
 
 				let isMouseFlag = false;
 				let lastBulletSpawnTime = 0;
-				const spawnSpeed = 250;
 				const keysMaps = {};
 				const speed = 10;
-				const bulletSpeed = 15;
 
 				const enemyCount = 10;
 
 				for (let index = 0; index < enemyCount; index++) {
-					const enemy = PIXI.Sprite.from("resources/enemy.png");
-					enemy.position.x = index * 50;
-					enemy.position.y = Math.floor(Math.random() * 100) + 1;;
+					const enemy:Enemy = new Enemy(index * 50, Math.floor(Math.random() * 100) + 1, 10,PIXI.Sprite.from("resources/enemy.png"))
 					enemies.addChild(enemy);
 				}
 
@@ -92,22 +80,16 @@ const canvas = document.querySelector("canvas");
 					if (isMouseFlag) {
 						const currentTime = Date.now();
 
-						if ((currentTime - lastBulletSpawnTime) > spawnSpeed) {
-
-							const bullet = PIXI.Sprite.from("resources/bullet.png");
-							bullet.position.x = sprite.position.x;
-							bullet.position.y = sprite.position.y;
-							bullet.scale.x = 0.25;
-							bullet.scale.y = 0.25;
+						if ((currentTime - lastBulletSpawnTime) > Bullet.spawnSpeed) {
+							const bullet:Bullet = new Bullet(15, PIXI.Sprite.from("resources/bullet.png"), sprite.position.x,sprite.position.y,0.25)
 							bullets.addChild(bullet);
-
 							lastBulletSpawnTime = currentTime;
 						}
 					}
 
 					for (let index = 0; index < bullets.children.length; index++) {
 						const bullet = bullets.children[index];
-						bullet.position.y -= bulletSpeed * delay;
+						bullet.updatePosition(delay)
 
 						if (bullet.position.y < 0) {
 							bullets.removeChild(bullet);
@@ -117,33 +99,33 @@ const canvas = document.querySelector("canvas");
 						for (const enemy of enemies.children) {
 							if (enemy.getBounds().intersects(bullet.getBounds())) {
 								enemies.removeChild(enemy);
-								points += 1;
-								score.text = `Score: ${points}`;
+								game.addPoint();
+								score.setContent(`Score: ${game.getPoints()}`);
 							}
 						}
 					}
 					for (const enemy of enemies.children) {
 						if(enemy.getBounds().intersects(sprite.getBounds()))
 							{
-								livesn -= 1;
+								game.substractLive();
 								enemies.removeChild(enemy);
-								lives.text = `Lives: ${livesn}`;
+								lives.setContent(`Lives: ${game.getLives()}`);
 							}
 						}
 					if (enemies.children < 1) {
 						app.stage.removeChild(gameScene);
 						app.stage.addChild(win);
 					}
-					if (livesn < 1)
+					if (game.getLives() < 1)
 					{
 						app.stage.removeChild(gameScene);
 						app.stage.addChild(lose);
 					}
 
 					for (const enemy of enemies.children) {
-						enemy.position.y += 2 * delay;
-						if(enemy.position.y > height)
-							enemy.position.y = -50
+						enemy.updatePosition(delay);
+						if(enemy.position.y > game.height)
+							enemy.setStartPosition();
 					}
 				};
 				
@@ -151,29 +133,21 @@ const canvas = document.querySelector("canvas");
 
 			
 			const gameScene = new PIXI.Container();
-			const updateScene = createGameScene(gameScene, points, livesn);
+			const updateScene = createGameScene(gameScene);
 
 			let state = "mainMenu";
 
 			const mainScene = new PIXI.Container();
 			
 			const style = new PIXI.TextStyle({ fill: "#eee", fontSize: 20 });
-			const field = new PIXI.Text("Start Game", style);
-			const win = new PIXI.Text("win",style)
-			win.position.y = height/2;
-			win.position.x = width/2;
+			const field:TextBlock = new TextBlock(300,300,"Start Game", style);
+			const win:TextBlock = new TextBlock(game.height/2, game.width/2,"win",style)
+			const lose:TextBlock = new TextBlock(game.height/2, game.width/2,"Game over",style)
 
-			const lose = new PIXI.Text("Game over",style)
-			lose.position.y = height/2;
-			lose.position.x = width/2;
-			
 			field.interactive = true;
 			field.buttonMode = true;
 			field.scale.x = 2;
-			field.position.x = 300;
-			field.position.y = 300;
-			
-            
+
 			mainScene.addChild(field);
 			field.on('click', () => {
 				state = "game";
